@@ -20,8 +20,8 @@ import org.firstinspires.ftc.teamcode.OpMode.Subsytem_Action.subIntake;
 public class MainDriverControlled extends OpMode {
     private  MecanumDrive drive;
     private FlyWheel flyWheel;
-    private FlyWheel.Controlled flyWheelControlled;
-    private Configuration configuration;
+    private FlyWheel.Controlled flyWheelControlled ;
+    private Configuration configuration = new Configuration();
     private Turret turret;
     private subIntake Intake;
     private subIntake.controlledIntake controlledIntake;
@@ -35,12 +35,15 @@ public class MainDriverControlled extends OpMode {
         flyWheel = new FlyWheel(hardwareMap);
         turret = new Turret(hardwareMap);
         Intake = new subIntake(hardwareMap);
+
+        flyWheelControlled = flyWheel.new Controlled();
+        controlledIntake = Intake.new controlledIntake();
     }
 
     @Override
     public void loop() {
 //        ========= PARAMETERS =========
-        drive.localizer.update();
+        drive.updatePoseEstimate();
         Pose2d position = drive.localizer.getPose();
         double xPosition = position.position.x;
         double yPosition = position.position.y;
@@ -62,7 +65,7 @@ public class MainDriverControlled extends OpMode {
 //        ======= TURRET =======
         boolean pressButton = gamepad1.b;
         if (pressButton) {
-            turret.updateTurret(xPosition, yPosition, robotHeading, configuration.blueTarget);
+            turret.updateTurret(xPosition, yPosition, Math.toDegrees(robotHeading), configuration.blueTarget);
         }
 
 //        ====== INTAKE ======
@@ -71,9 +74,9 @@ public class MainDriverControlled extends OpMode {
         controlledIntake.IntakeIn(triggered);
         controlledIntake.IntakeOut(bumper);
 
-        double totalAMP = drive.leftFront.getCurrent(CurrentUnit.AMPS) +
+        double totalAMP =
+                drive.leftFront.getCurrent(CurrentUnit.AMPS) +
                 drive.leftBack.getCurrent(CurrentUnit.AMPS) +
-                drive.rightFront.getCurrent(CurrentUnit.AMPS) +
                 drive.rightFront.getCurrent(CurrentUnit.AMPS) +
                 drive.rightBack.getCurrent(CurrentUnit.AMPS) +
                 flyWheel.flyWheel.getCurrent(CurrentUnit.AMPS) +
@@ -83,6 +86,9 @@ public class MainDriverControlled extends OpMode {
 
 //        ====== TELEMETRY ======
         telemetry.addData("TOTAL AMP", totalAMP);
+        telemetry.addData("Robot X", xPosition);
+        telemetry.addData("Robot Y", yPosition);
+        telemetry.addData("Robot Heading", robotHeading);
         telemetry.addLine("DRIVE BASE");
         telemetry.addData("FRONT LEFT AMP", drive.leftFront.getCurrent(CurrentUnit.AMPS));
         telemetry.addData("BACK LEFT AMP", drive.leftBack.getCurrent(CurrentUnit.AMPS));
