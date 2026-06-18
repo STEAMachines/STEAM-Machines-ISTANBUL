@@ -1,5 +1,11 @@
 package org.firstinspires.ftc.teamcode.OpMode.Subsytem_Action;
 
+import androidx.annotation.NonNull;
+
+import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
+import com.acmerobotics.roadrunner.Action;
+import com.acmerobotics.roadrunner.Actions;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -8,10 +14,17 @@ import com.qualcomm.robotcore.hardware.Servo;
 
 import com.acmerobotics.roadrunner.Pose2d;
 
+import org.firstinspires.ftc.robotcore.external.Telemetry;
+
+@Config
 public class FlyWheel {
     // TODO: HOOD ANGLE (1) PALING BAWAH | (0.1) PALING ATAS
     public DcMotorEx flyWheel;
-    public Servo hoodAngle;
+    public Servo hoodAngle, stooper;
+    public static double OPEN_angle = 0.35;
+    public static double CLOSE_angle = 1;
+    public static double dropThreshold = 200;
+    public static double flyWheelVel = 1300;
 
     public FlyWheel(HardwareMap hardwareMap) {
         flyWheel = hardwareMap.get(DcMotorEx.class, "flyWheel");
@@ -19,16 +32,33 @@ public class FlyWheel {
         flyWheel.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, flyWheelPIDF);
 
         hoodAngle = hardwareMap.get(Servo.class, "hoodAngle");
+        stooper = hardwareMap.get(Servo.class, "stooper");
+        stooper.setDirection(Servo.Direction.REVERSE);
+        stooper.setPosition(CLOSE_angle);
     }
 
     public class Controlled {
-        public void flyWheel(double distance, boolean button) {
+        public void flyWheel(double distance, boolean button, boolean Stooper) {
+                double currentVelocity = flyWheel.getVelocity();
+                double targetVelocity = 1300;
             if (button) {
-                flyWheel.setVelocity(flyWheelSpeed(distance));
+
+                if (targetVelocity - currentVelocity > dropThreshold) {
+                    targetVelocity += 230;
+                }
+
+                flyWheel.setVelocity(targetVelocity);
+                hoodAngle(distance);
+            } else {
+                flyWheel.setVelocity(0);
             }
-            else {
-                flyWheel.setPower(0);
+
+            if (Stooper ) {
+                stooper.setPosition(OPEN_angle);
+            } else {
+                stooper.setPosition(CLOSE_angle);
             }
+
         }
 
         public void hoodAngle(double distance) {
@@ -45,8 +75,15 @@ public class FlyWheel {
 
     private double flyWheelSpeed(double distance) {
         double[][] dataPoints = {
-                {0, 0},
-                {0, 0}
+                {24.5, 1300},
+                {30, 1350},
+                {42, 1390},
+                {48, 1400},
+                {72, 1500},
+                {82, 1580},
+                {96, 1590},
+                {120, 1600},
+                {144, 1800}
         };
 
         if (distance <= dataPoints[0][0]) {
@@ -75,10 +112,52 @@ public class FlyWheel {
         return 1500;
     }
     private double setHoodAngle(double distance) {
-        double hood = -4.74322e-8 * Math.pow(distance, 3) + -0.0000382626 * Math.pow(distance, 2)
-                + 0.015535 * distance + -0.359574;
+        double hood = 1.0;
         if (hood < 0) hood = 0;
         if (hood > 0.95) hood = 0.95;
         return hood;
+    }
+
+
+//    AUTONOMOUS
+    public Action flyWheelOn(double distance) {
+        return new flyWheelOn(distance);
+    }
+
+    public Action flyWheelOff() {
+        return new flyWheelOff();
+    }
+
+    private class flyWheelOn implements Action {
+        private double distance;
+        private boolean initialize= false;
+
+        public flyWheelOn(double distance) {
+            this.distance = distance;
+        }
+
+        @Override
+        public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+            if (!initialize) {
+                flyWheel.setVelocity(flyWheelSpeed(distance));
+                initialize = true;
+            }
+
+            return false;
+        }
+    }
+
+    private class flyWheelOff implements Action {
+        private boolean initialize = false;
+
+        @Override
+        public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+
+            if (!initialize) {
+                flyWheel.setPower(0);
+                initialize = true;
+            }
+            return false;
+        }
     }
 }

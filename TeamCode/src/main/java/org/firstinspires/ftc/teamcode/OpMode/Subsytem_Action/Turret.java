@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.OpMode.Subsytem_Action;
 
+import android.media.Ringtone;
+
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -13,6 +15,8 @@ public class Turret {
     public DcMotorEx turret;
     private ElapsedTime spinTimer = new ElapsedTime();
 
+    private final double GearRatio = 537.6898395722 * (100.0 / 20.0);
+
     private double integralSum = 0;
     private double lastError = 0;
     private final double integralLimit = 15.0;
@@ -23,9 +27,13 @@ public class Turret {
     public static double kD = 0.005;
     public static double kF = 0;
 
+    private final double LEFT_LIMIT = 160.0;
+    private final double RIGHT_LIMIT = -220.0;
+
     public Turret(HardwareMap hardwareMap) {
-        turret = hardwareMap.get(DcMotorEx.class, "turret");
-        turret.setDirection(DcMotorSimple.Direction.FORWARD);
+        turret = hardwareMap.get(DcMotorEx.class, "rotateTurret");
+        turret.setDirection(DcMotorSimple.Direction.REVERSE);
+        turret.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         turret.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         turret.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
@@ -34,14 +42,26 @@ public class Turret {
 
     public void updateTurret(double robotX, double robotY, double robotHeading,
                              Pose2d target) {
-        double x  = target.position.x - robotX;
-        double y = target.position.y -  robotY;
+        double x = target.position.x - robotX;
+        double y = target.position.y - robotY;
 
-        double fieldTargetAngle =  Math.toDegrees(Math.atan2(y, x));
-        double turretTargetAngle = normalizeAngle(fieldTargetAngle - robotHeading);
+        double angle = Math.atan2(y, x);
+        double fieldTurret = normalizeAngle(angle - robotHeading);
+        double currentDeg = turret.getCurrentPosition() / GearRatio;
 
-        double error = calculatePID(turretTargetAngle);
-        turret.setPower(Range.clip(error, 1, - 1));
+
+        if (currentDeg < RIGHT_LIMIT - 5) {
+            fieldTurret = 360;
+        } else if (currentDeg > LEFT_LIMIT + 5) {
+            fieldTurret = -360;
+        }
+
+
+        fieldTurret = Range.clip(fieldTurret, RIGHT_LIMIT, LEFT_LIMIT);
+        double error = normalizeAngle(fieldTurret - currentDeg);
+        error = Range.clip(error, RIGHT_LIMIT, LEFT_LIMIT);
+        turretError = error;
+        turret.setPower(Range.clip(calculatePID(error), -1, 1));
     }
 
     private double calculatePID(double error) {
@@ -51,7 +71,7 @@ public class Turret {
         if (dt > 0.5) dt = 0.5;
         if (dt <= 0) dt = 0.02;
 
-        if (Math.abs(error) < 2) {
+        if (Math.abs(error) < 3) {
             integralSum = 0.0;
             lastError = error;
             return 0;
@@ -73,13 +93,16 @@ public class Turret {
 
         double output = pidTerm + ff;
 
-        if (Math.abs(output) < 0.05 &&  Math.abs(error) > 2) {
-            output = 0.05 * Math.signum(error);
-        }
+//        if (Math.abs(output) < 0.05 &&  Math.abs(error) > 2) {
+//            output = 0.05 * Math.signum(error);
+//        }
 
         return output;
     }
 
+    public double getTurretError() {
+        return turretError;
+    }
 
     private double normalizeAngle(double degree) {
         while (degree >  180) degree -= 360;

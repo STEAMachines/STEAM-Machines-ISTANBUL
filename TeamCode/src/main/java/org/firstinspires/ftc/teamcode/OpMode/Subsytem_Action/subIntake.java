@@ -8,8 +8,13 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
+import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.OpMode.NormalizeColorSensor;
+
 public class subIntake {
     public DcMotorEx FrontIntake, ReversalIntake;
+    private NormalizeColorSensor colorSensor1, colorSensor2, colorSensor3;
+    private NormalizeColorSensor.detectColors dColor1, dColor2, dColor3;
 
     public subIntake(HardwareMap hardwareMap) {
         FrontIntake = hardwareMap.get(DcMotorEx.class, "Intake1");
@@ -17,6 +22,47 @@ public class subIntake {
 
         FrontIntake.setDirection(DcMotorSimple.Direction.REVERSE);
         ReversalIntake.setDirection(DcMotorSimple.Direction.FORWARD);
+
+        colorSensor1 = new NormalizeColorSensor(hardwareMap, "color1");
+        colorSensor2 = new NormalizeColorSensor(hardwareMap, "color2");
+        colorSensor3 = new NormalizeColorSensor(hardwareMap, "color3");
+    }
+
+    public int ballCounting(Telemetry telemetry) {
+        dColor1 = colorSensor1.getDetectedColor(telemetry);
+        dColor2 = colorSensor2.getDetectedColor(telemetry);
+        dColor3 = colorSensor3.getDetectedColor(telemetry);
+
+        boolean front = isDetecting(dColor1);
+        boolean middle = isDetecting(dColor2);
+        boolean atGate = isDetecting(dColor3);
+
+        int count;
+
+        if (front && !(middle && atGate)) {
+            count = 1;
+            telemetry.addData("FRONT", front);
+        } else if(front && middle && !atGate) {
+            count = 2;
+            telemetry.addData("FRONT", front);
+            telemetry.addData("MIDDLE", middle);
+        } else if (front && middle && atGate) {
+            count = 3;
+            telemetry.addData("FRONT", front);
+            telemetry.addData("MIDDLE", middle);
+            telemetry.addData("BACKERS", atGate);
+        } else {
+            count = 0;
+            telemetry.addLine("NO BALLS");
+        }
+        telemetry.addData("COUNTED BALL", count);
+        telemetry.update();
+        return count;
+    }
+
+    private boolean isDetecting(NormalizeColorSensor.detectColors color) {
+        return color == NormalizeColorSensor.detectColors.PURPLE ||
+                color == NormalizeColorSensor.detectColors.GREEN;
     }
 
     public Action IntakeIn(double power) {return new IntakeAction(power);}
@@ -60,23 +106,18 @@ public class subIntake {
 
 
     public class controlledIntake {
-        public void IntakeIn(double triggered) {
-            if (triggered > 0.1) {
+        public void intake(double trigger, boolean bumper, boolean additional) {
+            if (trigger > 0.1) {
                 FrontIntake.setPower(1);
                 ReversalIntake.setPower(1);
+            } else if (bumper) {
+                FrontIntake.setPower(-1);
+                ReversalIntake.setPower(-1);
             } else {
                 FrontIntake.setPower(0);
                 ReversalIntake.setPower(0);
-            }
-        }
-        public void IntakeOut(boolean bumper) {
-            if (bumper) {
-                FrontIntake.setPower(-1);
-                ReversalIntake.setPower(-1);
-            }
-            else {
-                FrontIntake.setPower(0);
-                ReversalIntake.setPower(0);
+            } if (additional) {
+                FrontIntake.setPower(1);
             }
         }
     }
